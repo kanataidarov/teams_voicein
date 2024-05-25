@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package teams_voicein;
+option go_package = "github.com/kanataidarov/tinkoff_voicekit/pkg/teams_voicein";
+
+service SpeechToText {
+  rpc Recognize(SttRequest) returns (SttResponse) {}
+}
+
+message SttRequest {
+  FileHeader header = 1;
+  bytes data = 2;
+}
+
+message FileHeader {
+  string name = 1;
+  optional int64 size = 2;
+}
+
+message SttResponse {
+  string message = 1;
+}
