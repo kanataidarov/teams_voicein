@@ -1,11 +1,9 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:grpc/grpc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:teams_voicein/client_service.dart';
 import 'package:teams_voicein/recording_button.dart';
-import 'package:teams_voicein/service/teams_voicein/stt.pbgrpc.dart';
 import 'package:teams_voicein/wave_widget.dart';
 
 void main() {
@@ -67,7 +65,10 @@ class _MyAppState extends State<MyApp> {
             const SizedBox(height: 18),
             RecordingButton(isRecording: _isRecording, onPressed: record),
             // ElevatedButton(onPressed: playRecording, child: Text('Play record'))
-            ElevatedButton(onPressed: getHw, child: const Text('Get Hw'))
+            ElevatedButton(
+                onPressed: () =>
+                    ClientService.instance.recognize(getFilePath()),
+                child: const Text('Get Hw'))
           ],
         ),
       ),
@@ -112,19 +113,6 @@ class _MyAppState extends State<MyApp> {
       await _player.play(url);
     } catch (e) {
       print('TVI__: Error playing recording - $e');
-    }
-  }
-
-  Future<void> getHw() async {
-    try {
-      HwRequest request = HwRequest();
-
-      var response = await ClientService.instance.getClient.sayHello(request);
-      print('TVI__: Response - ${response.message}');
-    } on GrpcError catch(e) {
-      print('TVI__: Error sending HwRequest - $e');
-    } catch(e) {
-      print('TVI__: Unexpected error - $e');
     }
   }
 }
