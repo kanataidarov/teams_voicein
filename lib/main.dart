@@ -26,7 +26,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final String _fileName = 'voice_msg.aac';
+  final String _fileName = 'voice_msg.wav';
 
   late final FlutterSoundPlayer? _player;
   late final FlutterSoundRecorder? _recorder;
@@ -117,11 +117,11 @@ class _MyAppState extends State<MyApp> {
             const SizedBox(height: 18),
             RecordingButton(isRecording: _isRecording, onPressed: record),
             ElevatedButton(
-                onPressed: playRecording, child: const Text('Play record'))
-            // ElevatedButton(
-            //     onPressed: () =>
-            //         ClientService.instance.recognize(getFilePath()),
-            //     child: const Text('Get Hw'))
+                onPressed: playRecording, child: const Text('Play record')),
+            ElevatedButton(
+                onPressed: () =>
+                    ClientService.instance.recognize(getFilePath()),
+                child: const Text('Get Hw'))
           ],
         ),
       ),
@@ -134,11 +134,11 @@ class _MyAppState extends State<MyApp> {
     try {
       _recorder!.startRecorder(
         audioSource: AudioSource.defaultSource,
-        codec: Codec.aacMP4,
+        codec: Codec.pcm16WAV,
         toFile: getFilePath(),
         enableVoiceProcessing: true,
         numChannels: 1,
-        sampleRate: 48000
+        sampleRate: 16000
       ).then((_) {
         setState(() {});
       });
