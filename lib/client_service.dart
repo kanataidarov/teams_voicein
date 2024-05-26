@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
+import 'package:logger/logger.dart' show Level, Logger;
 import 'package:teams_voicein/service/teams_voicein/stt.pbgrpc.dart';
+
+Logger _logger = Logger(level: Level.debug);
 
 class ClientService {
   final String baseUrl = '192.168.8.10';
@@ -39,11 +42,11 @@ class ClientService {
       SttRequest request = SttRequest(header: header, data: file.readAsBytesSync());
 
       var response = await _client.recognize(request);
-      print('TVI__: Response - ${response.message}');
+      _logger.i('Response - ${response.message}');
     } on GrpcError catch (e) {
-      print('TVI__: Error sending HwRequest - $e');
+      _logger.e('Error sending SttRequest - ${e.message}', error: e);
     } catch (e) {
-      print('TVI__: Unexpected error - $e');
+      _logger.e('Unexpected error - ${e.toString()}', error: e);
     }
   }
 }

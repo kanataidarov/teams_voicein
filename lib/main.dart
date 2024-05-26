@@ -1,10 +1,15 @@
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audio_session/audio_session.dart' as aus;
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:flutter_sound_platform_interface/flutter_sound_recorder_platform_interface.dart';
+import 'package:logger/logger.dart' show Level, Logger;
 import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:teams_voicein/client_service.dart';
 import 'package:teams_voicein/recording_button.dart';
 import 'package:teams_voicein/wave_widget.dart';
+
+Logger _logger = Logger(level: Level.debug);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,26 +26,72 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final String _fileName = 'voice_msg.wav';
+  final String _fileName = 'voice_msg.aac';
 
-  late final AudioPlayer _player;
-  late final AudioRecorder _recorder;
+  late final FlutterSoundPlayer? _player;
+  late final FlutterSoundRecorder? _recorder;
 
   String _downloads = '';
   bool _isRecording = false;
+  bool _playerReady = false;
+  bool _recorderReady = false;
 
   @override
   void initState() {
-    _player = AudioPlayer();
-    _recorder = AudioRecorder();
+    _player = FlutterSoundPlayer();
+    _recorder = FlutterSoundRecorder();
+
     _requestDownloadsDirPath();
+
+    openTheRecorder().then((value) {
+      setState(() {
+        _recorderReady = true;
+      });
+    });
+
+    _player!.openPlayer().then((value) {
+      setState(() {
+        _playerReady = true;
+      });
+    });
+
     super.initState();
+  }
+
+  Future<void> openTheRecorder() async {
+    if (!await Permission.microphone.isGranted) {
+      throw RecordingPermissionException('Microphone permission not granted');
+    }
+
+    await _recorder!.openRecorder();
+    final session = await aus.AudioSession.instance;
+    await session.configure(aus.AudioSessionConfiguration(
+      avAudioSessionCategory: aus.AVAudioSessionCategory.playAndRecord,
+      avAudioSessionCategoryOptions:
+          aus.AVAudioSessionCategoryOptions.allowBluetooth |
+              aus.AVAudioSessionCategoryOptions.defaultToSpeaker,
+      avAudioSessionMode: aus.AVAudioSessionMode.spokenAudio,
+      avAudioSessionRouteSharingPolicy:
+          aus.AVAudioSessionRouteSharingPolicy.defaultPolicy,
+      avAudioSessionSetActiveOptions: aus.AVAudioSessionSetActiveOptions.none,
+      androidAudioAttributes: const aus.AndroidAudioAttributes(
+        contentType: aus.AndroidAudioContentType.speech,
+        flags: aus.AndroidAudioFlags.none,
+        usage: aus.AndroidAudioUsage.voiceCommunication,
+      ),
+      androidAudioFocusGainType: aus.AndroidAudioFocusGainType.gain,
+      androidWillPauseWhenDucked: true,
+    ));
+
+    _recorderReady = true;
   }
 
   @override
   void dispose() {
-    _player.dispose();
-    _recorder.dispose();
+    _player!.closePlayer();
+    _player = null;
+    _recorder!.closeRecorder();
+    _recorder = null;
     super.dispose();
   }
 
@@ -49,7 +100,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   String getFilePath() {
-    return '$_downloads/$_fileName';
+    // return '$_downloads/$_fileName';
+    return '/storage/emulated/0/Download/$_fileName';
   }
 
   @override
@@ -64,11 +116,12 @@ class _MyAppState extends State<MyApp> {
             if (_isRecording) const WaveWidget(),
             const SizedBox(height: 18),
             RecordingButton(isRecording: _isRecording, onPressed: record),
-            // ElevatedButton(onPressed: playRecording, child: Text('Play record'))
             ElevatedButton(
-                onPressed: () =>
-                    ClientService.instance.recognize(getFilePath()),
-                child: const Text('Get Hw'))
+                onPressed: playRecording, child: const Text('Play record'))
+            // ElevatedButton(
+            //     onPressed: () =>
+            //         ClientService.instance.recognize(getFilePath()),
+            //     child: const Text('Get Hw'))
           ],
         ),
       ),
@@ -76,23 +129,33 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> startRecording() async {
+    if (!_recorderReady) return;
+
     try {
-      if (await _recorder.hasPermission()) {
-        print('TVI__: Started recording - ${getFilePath()}');
-        await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav),
-            path: getFilePath());
-      }
+      _recorder!.startRecorder(
+        audioSource: AudioSource.defaultSource,
+        codec: Codec.aacMP4,
+        toFile: getFilePath(),
+        enableVoiceProcessing: true,
+        numChannels: 1,
+        sampleRate: 48000
+      ).then((_) {
+        setState(() {});
+      });
+      _logger.i('Started recording - ${getFilePath()}');
     } catch (e) {
-      print('TVI__: Error starting recording - $e');
+      _logger.e('Error starting recording - ${e.toString()}', error: e);
     }
   }
 
   Future<void> stopRecording() async {
     try {
-      String? path = await _recorder.stop();
-      print('TVI__: Stopped recording - $path');
+      await _recorder!.stopRecorder().then((value) {
+        _logger.i('Stopped recording - $value');
+        setState(() {});
+      });
     } catch (e) {
-      print('TVI__: Error stopping recording - $e');
+      _logger.e('Error stopping recording - ${e.toString()}', error: e);
     }
   }
 
@@ -108,11 +171,16 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> playRecording() async {
+    if (!_playerReady) return;
+
     try {
-      Source url = UrlSource(getFilePath());
-      await _player.play(url);
+      _player!.startPlayer(
+          fromURI: getFilePath(),
+          whenFinished: () {
+            setState(() {});
+          });
     } catch (e) {
-      print('TVI__: Error playing recording - $e');
+      _logger.e('Error playing recording - ${e.toString()}', error: e);
     }
   }
 }
