@@ -100,8 +100,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   String getFilePath() {
-    // return '$_downloads/$_fileName';
-    return '/storage/emulated/0/Download/$_fileName';
+    return '$_downloads/$_fileName';
   }
 
   @override
